@@ -1,0 +1,16 @@
+# Data & checkpoints
+data/
+outputs/
+*.pth
+*.pt
+__pycache__/
+*.pyc
+
+# Local environments
+.venv/
+env/
+.env
+
+# MacOS/Windows hidden files
+.DS_Store
+Thumbs.db

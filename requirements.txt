@@ -1,0 +1,24 @@
+# ════════════════════════════════════════════════════════════════
+# Pinned dependencies for reproducibility
+# ════════════════════════════════════════════════════════════════
+# Add the PyTorch repository as an additional source
+--extra-index-url https://download.pytorch.org/whl/cu126
+
+# Specific CUDA-enabled PyTorch packages
+torch
+torchvision
+
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+PyYAML>=6.0
+tensorboard>=2.14.0
+grad-cam>=1.5.0
+tqdm>=4.65.0
+albumentations>=1.3.0
+PyWavelets>=1.4.0
+timm>=0.9.0

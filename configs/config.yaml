@@ -1,0 +1,43 @@
+# ════════════════════════════════════════════════════════════════
+# Attention-Based Multimodal Breast Cancer Classification
+# Bidirectional Cross-Attention Fusion of Mammography & Ultrasound
+# ════════════════════════════════════════════════════════════════
+
+data:
+  mammo_csv_train: "data/cbis_ddsm/csv/mass_case_description_train_set.csv"
+  mammo_csv_test:  "data/cbis_ddsm/csv/mass_case_description_test_set.csv"
+  mammo_jpeg_root: "data/cbis_ddsm/jpeg"
+  us_dir:          "data/busi"
+  us_ood_dir:      "data/busi/normal"
+  image_size: 224
+  train_split: 0.70
+  val_split:   0.15
+  test_split:  0.15
+  num_workers: 4
+
+model:
+  encoder_backbone: "efficientnet_b0"   # efficientnet_b0 | densenet121 | vit_b_16
+  token_dim: 512
+  num_attention_heads: 8
+  attention_dropout: 0.1
+  transformer_layers: 2
+  transformer_ffn_dim: 1024
+  classifier_hidden_dim: 256
+  classifier_dropout: 0.3
+  modality_dropout_prob: 0.2
+
+training:
+  batch_size: 16
+  epochs: 50
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-4
+  lr_min: 1.0e-6
+  early_stopping_patience: 10
+  mixed_precision: true
+  seed: 42
+
+output:
+  checkpoint_dir: "outputs/checkpoints"
+  log_dir:        "outputs/logs"
+  figure_dir:     "outputs/figures"
+  results_dir:    "outputs/results"
