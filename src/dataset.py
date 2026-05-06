@@ -25,9 +25,9 @@ from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from src.preprocessing import get_mammography_transforms, get_ultrasound_transforms
 
 
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 #  CBIS-DDSM Loader
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 
 def load_cbis(csv_path: str, jpeg_root: str) -> pd.DataFrame:
     """Load CBIS-DDSM mass mammography dataset via CSV → JPEG bridge.
@@ -96,9 +96,9 @@ def load_cbis(csv_path: str, jpeg_root: str) -> pd.DataFrame:
     return result
 
 
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 #  BUSI Loader
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 
 def load_busi(busi_root: str,
               include_normal: bool = False) -> pd.DataFrame:
@@ -136,9 +136,9 @@ def load_busi(busi_root: str,
     return pd.DataFrame(records)
 
 
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 #  Splitting utilities
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 
 def patient_stratified_split(
     df: pd.DataFrame,
@@ -251,9 +251,9 @@ def compute_class_weights(labels: np.ndarray) -> torch.Tensor:
     return weight_tensor
 
 
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 #  Dataset Classes
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 
 class MammographyDataset(Dataset):
     """Single-modality mammography dataset.
@@ -382,9 +382,9 @@ class MultiModalBreastDataset(Dataset):
         return mammo_img, us_img, label
 
 
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 #  Dataloader Builder
-# ════════════════════════════════════════════════════════════════
+# ================================================================
 
 def build_dataloaders(
     config: dict,
@@ -420,9 +420,9 @@ def build_dataloaders(
 
     us_df = load_busi(data_cfg["us_dir"], include_normal=False)
 
-    print(f"[DATA] CBIS-DDSM train CSV entries → {len(mammo_train_df)} images resolved")
-    print(f"[DATA] CBIS-DDSM test  CSV entries → {len(mammo_test_df)} images resolved")
-    print(f"[DATA] BUSI (benign+malignant)     → {len(us_df)} images")
+    print(f"[DATA] CBIS-DDSM train CSV entries -> {len(mammo_train_df)} images resolved")
+    print(f"[DATA] CBIS-DDSM test  CSV entries -> {len(mammo_test_df)} images resolved")
+    print(f"[DATA] BUSI (benign+malignant)     -> {len(us_df)} images")
 
     # ── Split mammography (patient-level) ──────────────────────
     mammo_tr, mammo_val, _ = patient_stratified_split(
@@ -434,7 +434,7 @@ def build_dataloaders(
     # The provided test CSV is the held-out test set
     mammo_te = mammo_test_df
 
-    print(f"[SPLIT] Mammo  — train: {len(mammo_tr)}, val: {len(mammo_val)}, "
+    print(f"[SPLIT] Mammo  - train: {len(mammo_tr)}, val: {len(mammo_val)}, "
           f"test: {len(mammo_te)}")
 
     # ── Split ultrasound (image-level stratified) ──────────────
@@ -445,7 +445,7 @@ def build_dataloaders(
         seed=seed,
     )
 
-    print(f"[SPLIT] US     — train: {len(us_tr)}, val: {len(us_val)}, "
+    print(f"[SPLIT] US     - train: {len(us_tr)}, val: {len(us_val)}, "
           f"test: {len(us_te)}")
 
     # ── Transforms ─────────────────────────────────────────────

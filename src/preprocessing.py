@@ -1,12 +1,12 @@
 """
-preprocessing.py — All image preprocessing transforms for mammography and ultrasound.
+preprocessing.py - All image preprocessing transforms for mammography and ultrasound.
 
 Mammography pipeline:
-    Grayscale → Resize 224×224 → CLAHE → 3-channel repeat → Augmentation → Normalize
+    Grayscale -> Resize 224x224 -> CLAHE -> 3-channel repeat -> Augmentation -> Normalize
 
 Ultrasound pipeline (Albumentations-based):
-    Grayscale → Albumentations augmentation (RandomResizedCrop, flips,
-    rotation, noise, elastic transform) → Normalize → 3-channel repeat
+    Grayscale -> Albumentations augmentation (RandomResizedCrop, flips,
+    rotation, noise, elastic transform) -> Normalize -> 3-channel repeat
 """
 
 import cv2
@@ -19,7 +19,7 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 
-# ── ImageNet normalization constants ───────────────────────────
+# -- ImageNet normalization constants ---------------------------
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
@@ -144,10 +144,10 @@ def get_mammography_transforms(image_size: int = 224,
     """Build the complete mammography preprocessing pipeline.
 
     Pipeline:
-        1. Load as grayscale PIL → numpy
+        1. Load as grayscale PIL -> numpy
         2. Resize to (image_size, image_size)
         3. CLAHE contrast enhancement
-        4. Repeat grayscale → 3-channel RGB
+        4. Repeat grayscale -> 3-channel RGB
         5. Training augmentations (flip, rotation)
         6. ImageNet normalisation
     """
@@ -158,7 +158,7 @@ class UltrasoundPipeline:
     """Callable class for ultrasound preprocessing pipeline.
 
     Uses Albumentations-based augmentation following the approach from
-    the breast cancer detection notebook.  No wavelet denoising — instead
+    the breast cancer detection notebook.  No wavelet denoising - instead
     uses heavier augmentations to prevent overfitting on the small BUSI
     dataset (~780 images).
     """
@@ -170,7 +170,7 @@ class UltrasoundPipeline:
         if is_training:
             transforms_list.extend([
                 A.RandomResizedCrop(
-                    height=image_size, width=image_size,
+                    size=(image_size, image_size),
                     scale=(0.7, 1.0), p=1.0,
                 ),
                 A.HorizontalFlip(p=0.5),
@@ -179,8 +179,8 @@ class UltrasoundPipeline:
                 A.RandomBrightnessContrast(
                     brightness_limit=0.1, contrast_limit=0.1, p=0.3,
                 ),
-                A.GaussNoise(var_limit=(5.0, 30.0), p=0.3),
-                A.ElasticTransform(alpha=30, sigma=5, p=0.2),
+                A.GaussNoise(std_range=(0.02, 0.05), p=0.3),
+                A.ElasticTransform(alpha=1, sigma=50, p=0.2),
             ])
         else:
             transforms_list.append(
@@ -208,11 +208,11 @@ class UltrasoundPipeline:
         gray = pil_img.convert("L")
         arr = np.array(gray, dtype=np.uint8)
 
-        # Apply Albumentations pipeline → (1, H, W) tensor
+        # Apply Albumentations pipeline -> (1, H, W) tensor
         augmented = self.pipeline(image=arr)
         tensor = augmented["image"]          # (1, H, W)
 
-        # Repeat single channel → 3 channels for pretrained backbone
+        # Repeat single channel -> 3 channels for pretrained backbone
         tensor = tensor.repeat(3, 1, 1)      # (3, H, W)
 
         return tensor

@@ -105,9 +105,9 @@ def sanity_check(model: nn.Module, model_type: str,
         3. Prints model parameter count and tensor shapes.
     """
     data_cfg = config["data"]
-    print("\n" + "═" * 60)
+    print("\n" + "=" * 60)
     print("  SANITY CHECKS")
-    print("═" * 60)
+    print("=" * 60)
 
     # 1. Verify dataset paths
     paths_to_check = [
@@ -118,7 +118,7 @@ def sanity_check(model: nn.Module, model_type: str,
     ]
     for p in paths_to_check:
         exists = os.path.exists(p)
-        status = "✓" if exists else "✗ MISSING"
+        status = "+" if exists else "X MISSING"
         print(f"  [{status}] {p}")
         if not exists:
             raise FileNotFoundError(f"Dataset path not found: {p}")
@@ -134,17 +134,17 @@ def sanity_check(model: nn.Module, model_type: str,
         else:
             output = model(dummy_batch)
     print(f"\n  Dummy forward pass: input (2, 3, {img_size}, {img_size})"
-          f" → output {tuple(output.shape)}")
+          f" -> output {tuple(output.shape)}")
     assert output.shape == (2, 2), (
         f"Expected output shape (2, 2), got {output.shape}")
-    print("  [✓] Output shape correct: (B, 2)")
+    print("  [+] Output shape correct: (B, 2)")
 
     # 3. Parameter count
     total_params = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"\n  Total parameters:     {total_params:,}")
     print(f"  Trainable parameters: {trainable:,}")
-    print("═" * 60 + "\n")
+    print("=" * 60 + "\n")
 
 
 # ════════════════════════════════════════════════════════════════
@@ -417,11 +417,11 @@ def main():
     patience_counter = 0
     use_amp = train_cfg["mixed_precision"] and device.type == "cuda"
 
-    print(f"\n{'═' * 60}")
+    print(f"\n{'=' * 60}")
     print(f"  TRAINING: {run_name}")
     print(f"  Epochs: {train_cfg['epochs']}, Batch size: {train_cfg['batch_size']}")
     print(f"  LR: {train_cfg['learning_rate']}, AMP: {use_amp}")
-    print(f"{'═' * 60}\n")
+    print(f"{'=' * 60}\n")
 
     for epoch in range(start_epoch, train_cfg["epochs"]):
         epoch_start = time.time()
@@ -490,7 +490,7 @@ def main():
                 "backbone": backbone,
                 "config": config,
             }, ckpt_path)
-            print(f"         ★ New best AUC: {best_val_auc:.4f} → saved {ckpt_path}")
+            print(f"         * New best AUC: {best_val_auc:.4f} -> saved {ckpt_path}")
         else:
             patience_counter += 1
             if patience_counter >= train_cfg["early_stopping_patience"]:
@@ -503,12 +503,12 @@ def main():
     log_file.close()
     writer.close()
 
-    print(f"\n{'═' * 60}")
+    print(f"\n{'=' * 60}")
     print(f"  TRAINING COMPLETE: {run_name}")
     print(f"  Best validation AUC: {best_val_auc:.4f}")
     print(f"  Checkpoint saved to: {ckpt_path}")
     print(f"  Log saved to: {log_csv_path}")
-    print(f"{'═' * 60}\n")
+    print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":
