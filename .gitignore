@@ -6,6 +6,10 @@ outputs/
 __pycache__/
 *.pyc
 
+# Frontend
+node_modules/
+frontend/dist/
+
 # Local environments
 .venv/
 env/

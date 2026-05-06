@@ -230,7 +230,7 @@ def validate(
     running_loss = 0.0
     n_batches = 0
     all_labels = []
-    all_probs = []
+    all_probs = {"fusion": [], "mammo": [], "us": []} if model_type == "fusion" else {"default": []}
 
     for batch in tqdm(loader, desc="  Val  ", leave=False):
         if model_type in ("fusion", "concat"):
@@ -243,35 +243,61 @@ def validate(
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
 
-        with torch.amp.autocast(device_type=device.type, enabled=use_amp):
-            if model_type == "fusion":
-                logits = model(mammo, us, modality_dropout=False)
-            elif model_type == "concat":
-                logits = model(mammo, us)
-            else:
-                logits = model(images)
-            loss = criterion(logits, labels)
+        if model_type == "fusion":
+            # 1. Fusion evaluation
+            with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+                logits_fusion = model(mammo, us, modality_dropout=False)
+                loss = criterion(logits_fusion, labels)
+            running_loss += loss.item()
+            all_probs["fusion"].append(torch.softmax(logits_fusion, dim=1)[:, 1].cpu())
 
-        running_loss += loss.item()
+            # 2. Mammo-only evaluation
+            with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+                logits_mammo = model(mammo, torch.zeros_like(us), modality_dropout=False)
+            all_probs["mammo"].append(torch.softmax(logits_mammo, dim=1)[:, 1].cpu())
+
+            # 3. US-only evaluation
+            with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+                logits_us = model(torch.zeros_like(mammo), us, modality_dropout=False)
+            all_probs["us"].append(torch.softmax(logits_us, dim=1)[:, 1].cpu())
+        else:
+            with torch.amp.autocast(device_type=device.type, enabled=use_amp):
+                if model_type == "concat":
+                    logits = model(mammo, us)
+                else:
+                    logits = model(images)
+                loss = criterion(logits, labels)
+            running_loss += loss.item()
+            all_probs["default"].append(torch.softmax(logits, dim=1)[:, 1].cpu())
+
         n_batches += 1
-
-        probs = torch.softmax(logits, dim=1)[:, 1]
         all_labels.append(labels.cpu())
-        all_probs.append(probs.cpu())
 
     all_labels = torch.cat(all_labels).numpy()
-    all_probs = torch.cat(all_probs).numpy()
-
     avg_loss = running_loss / max(n_batches, 1)
-    preds = (all_probs >= 0.5).astype(int)
-    accuracy = (preds == all_labels).mean()
+    
+    results = {"loss": avg_loss}
 
-    try:
-        auc = roc_auc_score(all_labels, all_probs)
-    except ValueError:
-        auc = 0.0  # single-class edge case
+    if model_type == "fusion":
+        for key in ["fusion", "mammo", "us"]:
+            probs = torch.cat(all_probs[key]).numpy()
+            if key == "fusion":
+                preds = (probs >= 0.5).astype(int)
+                results["accuracy"] = (preds == all_labels).mean()
+            try:
+                results[f"auc{'_' + key if key != 'fusion' else ''}"] = roc_auc_score(all_labels, probs)
+            except ValueError:
+                results[f"auc{'_' + key if key != 'fusion' else ''}"] = 0.0
+    else:
+        probs = torch.cat(all_probs["default"]).numpy()
+        preds = (probs >= 0.5).astype(int)
+        results["accuracy"] = (preds == all_labels).mean()
+        try:
+            results["auc"] = roc_auc_score(all_labels, probs)
+        except ValueError:
+            results["auc"] = 0.0
 
-    return {"loss": avg_loss, "accuracy": accuracy, "auc": auc}
+    return results
 
 
 # ════════════════════════════════════════════════════════════════
@@ -380,7 +406,7 @@ def main():
     if write_header:
         log_writer.writerow([
             "epoch", "train_loss", "val_loss", "val_accuracy",
-            "val_auc", "lr", "time_sec",
+            "val_auc", "val_auc_mammo", "val_auc_us", "lr", "time_sec",
         ])
 
     # ── Checkpoint path ────────────────────────────────────────
@@ -423,8 +449,9 @@ def main():
             f"train_loss={train_loss:.4f}  "
             f"val_loss={val_metrics['loss']:.4f}  "
             f"val_acc={val_metrics['accuracy']:.4f}  "
-            f"val_auc={val_metrics['auc']:.4f}  "
-            f"lr={current_lr:.2e}  "
+            f"val_auc={val_metrics['auc']:.4f}"
+            + (f" (mammo:{val_metrics.get('auc_mammo', 0.0):.2f} us:{val_metrics.get('auc_us', 0.0):.2f})" if args.model == "fusion" else "") +
+            f"  lr={current_lr:.2e}  "
             f"time={elapsed:.1f}s"
         )
 
@@ -433,6 +460,8 @@ def main():
             f"{val_metrics['loss']:.6f}",
             f"{val_metrics['accuracy']:.6f}",
             f"{val_metrics['auc']:.6f}",
+            f"{val_metrics.get('auc_mammo', 0.0):.6f}",
+            f"{val_metrics.get('auc_us', 0.0):.6f}",
             f"{current_lr:.8f}",
             f"{elapsed:.2f}",
         ])
@@ -442,6 +471,9 @@ def main():
         writer.add_scalar("Loss/val", val_metrics["loss"], epoch + 1)
         writer.add_scalar("Accuracy/val", val_metrics["accuracy"], epoch + 1)
         writer.add_scalar("AUC/val", val_metrics["auc"], epoch + 1)
+        if args.model == "fusion":
+            writer.add_scalar("AUC/val_mammo", val_metrics.get("auc_mammo", 0.0), epoch + 1)
+            writer.add_scalar("AUC/val_us", val_metrics.get("auc_us", 0.0), epoch + 1)
         writer.add_scalar("LR", current_lr, epoch + 1)
 
         # ── Checkpoint (best AUC) ──────────────────────────────

@@ -1,0 +1,18 @@
+# ════════════════════════════════════════════════════════════════
+# API-specific dependencies for the BreastAI Classifier
+# Install alongside the main requirements.txt:
+#   pip install -r api_requirements.txt
+# ════════════════════════════════════════════════════════════════
+
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.5.0
+Pillow>=10.0.0
+torch
+torchvision
+grad-cam>=1.5.0
+PyWavelets>=1.4.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+PyYAML>=6.0

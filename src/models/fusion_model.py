@@ -118,6 +118,14 @@ class CrossAttentionFusionModel(nn.Module):
         mammo_tokens = self.mammo_encoder(mammo)  # (B, N_m, D)
         us_tokens = self.us_encoder(us)            # (B, N_u, D)
 
+        # ── Handle API Missing Modalities (Zero Tensors) ───────
+        # If the input image is exactly zero (as sent by predictor.py), 
+        # ensure the tokens are exactly zero to match training behavior.
+        if (mammo == 0).all():
+            mammo_tokens = torch.zeros_like(mammo_tokens)
+        if (us == 0).all():
+            us_tokens = torch.zeros_like(us_tokens)
+
         # ── Modality dropout (training only) ───────────────────
         if modality_dropout and self.training:
             r = random.random()

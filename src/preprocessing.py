@@ -4,9 +4,9 @@ preprocessing.py — All image preprocessing transforms for mammography and ultr
 Mammography pipeline:
     Grayscale → Resize 224×224 → CLAHE → 3-channel repeat → Augmentation → Normalize
 
-Ultrasound pipeline (wavelet-based):
-    Grayscale → Resize 224×224 → Wavelet denoising (db2 soft-threshold) →
-    3-channel composite → Augmentation → Normalize
+Ultrasound pipeline (Albumentations-based):
+    Grayscale → Albumentations augmentation (RandomResizedCrop, flips,
+    rotation, noise, elastic transform) → Normalize → 3-channel repeat
 """
 
 import cv2
@@ -15,6 +15,8 @@ import pywt
 from PIL import Image
 import torch
 from torchvision import transforms
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 
 # ── ImageNet normalization constants ───────────────────────────
@@ -153,41 +155,79 @@ def get_mammography_transforms(image_size: int = 224,
 
 
 class UltrasoundPipeline:
-    """Callable class for ultrasound preprocessing pipeline."""
+    """Callable class for ultrasound preprocessing pipeline.
+
+    Uses Albumentations-based augmentation following the approach from
+    the breast cancer detection notebook.  No wavelet denoising — instead
+    uses heavier augmentations to prevent overfitting on the small BUSI
+    dataset (~780 images).
+    """
+
     def __init__(self, image_size: int, is_training: bool):
         self.image_size = image_size
-        self.wavelet = WaveletDenoise(wavelet="db2")
-        
-        aug_transforms = []
+
+        transforms_list = []
         if is_training:
-            aug_transforms.extend([
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2),
+            transforms_list.extend([
+                A.RandomResizedCrop(
+                    height=image_size, width=image_size,
+                    scale=(0.7, 1.0), p=1.0,
+                ),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.5),
+                A.Rotate(limit=10, p=0.3),
+                A.RandomBrightnessContrast(
+                    brightness_limit=0.1, contrast_limit=0.1, p=0.3,
+                ),
+                A.GaussNoise(var_limit=(5.0, 30.0), p=0.3),
+                A.ElasticTransform(alpha=30, sigma=5, p=0.2),
             ])
-        aug_transforms.extend([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+        else:
+            transforms_list.append(
+                A.Resize(height=image_size, width=image_size),
+            )
+
+        transforms_list.extend([
+            A.Normalize(mean=(0.5,), std=(0.5,)),
+            ToTensorV2(),
         ])
-        self.pipeline = transforms.Compose(aug_transforms)
+
+        self.pipeline = A.Compose(transforms_list)
 
     def __call__(self, pil_img: Image.Image) -> torch.Tensor:
+        """Preprocess an ultrasound image.
+
+        Args:
+            pil_img: PIL Image (any mode — will be converted to grayscale).
+
+        Returns:
+            Float tensor of shape (3, H, W) suitable for pretrained
+            backbones (3 identical grayscale channels).
+        """
+        # Convert to grayscale numpy array (as in the notebook)
         gray = pil_img.convert("L")
-        gray = gray.resize((self.image_size, self.image_size), Image.BILINEAR)
         arr = np.array(gray, dtype=np.uint8)
-        arr_3ch = self.wavelet(arr)
-        pil_3ch = Image.fromarray(arr_3ch, mode="RGB")
-        return self.pipeline(pil_3ch)
+
+        # Apply Albumentations pipeline → (1, H, W) tensor
+        augmented = self.pipeline(image=arr)
+        tensor = augmented["image"]          # (1, H, W)
+
+        # Repeat single channel → 3 channels for pretrained backbone
+        tensor = tensor.repeat(3, 1, 1)      # (3, H, W)
+
+        return tensor
+
 
 def get_ultrasound_transforms(image_size: int = 224,
                               is_training: bool = True):
-    """Build the complete ultrasound preprocessing pipeline (wavelet-based).
+    """Build the complete ultrasound preprocessing pipeline (Albumentations).
 
     Pipeline:
-        1. Load as grayscale PIL → numpy
-        2. Resize to (image_size, image_size)
-        3. Wavelet decomposition speckle reduction (db2 soft-threshold)
-        4. Build 3-channel composite: [denoised, original, denoised]
-        5. Training augmentations (flip, brightness/contrast jitter)
-        6. ImageNet normalisation
+        1. Convert to grayscale numpy array
+        2. Training: RandomResizedCrop + augmentations (flips, rotation,
+           brightness/contrast, Gaussian noise, elastic deformation)
+           Validation: simple Resize
+        3. Normalize (mean=0.5, std=0.5)
+        4. Repeat to 3 channels for pretrained backbone
     """
     return UltrasoundPipeline(image_size, is_training)
