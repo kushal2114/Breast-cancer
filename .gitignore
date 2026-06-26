@@ -1,20 +1,52 @@
-# Data & checkpoints
+# Data, checkpoints, and models
 data/
 outputs/
 *.pth
 *.pt
+*.onnx
+
+# Python cache & virtual environments
 __pycache__/
-*.pyc
-
-# Frontend
-node_modules/
-frontend/dist/
-
-# Local environments
+*.py[cod]
+*$py.class
 .venv/
+venv/
+ENV/
 env/
-.env
+.pytest_cache/
+.ipynb_checkpoints/
 
-# MacOS/Windows hidden files
+# Node/Frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+dist-ssr/
+*.local
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs and OS files
+.vscode/
+!.vscode/extensions.json
+.idea/
 .DS_Store
 Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
